@@ -56,7 +56,7 @@ const corsOptions = {
 
 // Apply cors middleware and ensure preflight is handled
 app.use(cors(corsOptions));
-app.options('/*', cors(corsOptions)); // enable pre-flight across-the-board
+// app.options('/*', cors(corsOptions)); // enable pre-flight across-the-board
 
 app.use(express.json());
 
