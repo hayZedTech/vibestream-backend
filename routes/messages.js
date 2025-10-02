@@ -59,6 +59,58 @@ router.get('/conversation', async (req, res) => {
 });
 
 /**
+ * DELETE /api/messages/conversation?userA=alice&userB=bob
+ * or DELETE /api/messages/conversation  with body { userA, userB }
+ *
+ * Removes all messages between the two users.
+ */
+router.delete('/conversation', async (req, res) => {
+  try {
+    const userA = (req.query.userA || req.body.userA || '').trim();
+    const userB = (req.query.userB || req.body.userB || '').trim();
+    if (!userA || !userB) return res.status(400).json({ msg: 'Missing userA or userB' });
+
+    const result = await Message.deleteMany({
+      $or: [
+        { fromUsername: userA, toUsername: userB },
+        { fromUsername: userB, toUsername: userA }
+      ]
+    });
+
+    return res.json({ ok: true, deletedCount: result.deletedCount ?? 0 });
+  } catch (err) {
+    console.error('DELETE /api/messages/conversation error', err);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/messages/conversation/delete
+ * Body: { userA, userB }
+ *
+ * Some clients may prefer POST for destructive actions — provide a fallback route.
+ */
+router.post('/conversation/delete', async (req, res) => {
+  try {
+    const userA = (req.body.userA || '').trim();
+    const userB = (req.body.userB || '').trim();
+    if (!userA || !userB) return res.status(400).json({ msg: 'Missing userA or userB in body' });
+
+    const result = await Message.deleteMany({
+      $or: [
+        { fromUsername: userA, toUsername: userB },
+        { fromUsername: userB, toUsername: userA }
+      ]
+    });
+
+    return res.json({ ok: true, deletedCount: result.deletedCount ?? 0 });
+  } catch (err) {
+    console.error('POST /api/messages/conversation/delete error', err);
+    return res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+/**
  * PUT /api/messages/conversation/mark-read
  * Body: { username, peer }
  */
@@ -73,7 +125,7 @@ router.put('/conversation/mark-read', async (req, res) => {
       { $set: { read: true } }
     );
 
-    return res.json({ msg: 'Marked as read', modifiedCount: result.modifiedCount });
+    return res.json({ msg: 'Marked as read', modifiedCount: result.modifiedCount ?? result.nModified ?? 0 });
   } catch (err) {
     console.error('PUT /api/messages/conversation/mark-read error', err);
     return res.status(500).json({ msg: 'Server error' });
