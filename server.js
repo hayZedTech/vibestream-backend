@@ -41,6 +41,16 @@ const corsOptions = {
     // allow requests with no origin (mobile clients, curl, server-to-server)
     if (!origin) return callback(null, true);
 
+    // During development, always allow localhost and 127.0.0.1 regardless of allowedOrigins
+    try {
+      const hostname = new URL(origin).hostname;
+      if (process.env.NODE_ENV !== 'production' && (hostname === 'localhost' || hostname === '127.0.0.1')) {
+        return callback(null, true);
+      }
+    } catch (e) {
+      // ignore URL parse errors and continue to regular checks
+    }
+
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
