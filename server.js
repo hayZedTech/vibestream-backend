@@ -20,20 +20,58 @@ const Message = require('./models/Message');
 const app = express();
 const server = http.createServer(app);
 
-// Socket.io setup
+// === Read allowed origins from env ===
+// Provide either CLIENT_URL (single) or CLIENT_URLS (comma-separated)
+const rawOrigins = process.env.CLIENT_URLS || process.env.CLIENT_URL || '';
+const allowedOrigins = rawOrigins
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+// Helpful default during local development if nothing provided
+if (allowedOrigins.length === 0 && process.env.NODE_ENV !== 'production') {
+  allowedOrigins.push('http://localhost:5173');
+}
+
+console.log('🔒 Allowed CORS origins:', allowedOrigins.length ? allowedOrigins : ['*']);
+
+// === CORS options for Express ===
+const corsOptions = {
+  origin: (origin, callback) => {
+    // allow requests with no origin (mobile clients, curl, server-to-server)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Not allowed by CORS
+    const msg = `CORS policy violation: origin "${origin}" is not allowed.`;
+    return callback(new Error(msg), false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+
+// Apply cors middleware and ensure preflight is handled
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // enable pre-flight across-the-board
+
+app.use(express.json());
+
+// === Socket.io setup with same origins ===
+const socketCorsOrigin = allowedOrigins.length ? allowedOrigins : '*';
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || '*',
-    methods: ['GET', 'POST']
-  }
+    origin: socketCorsOrigin,
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
 });
 
 // Track online users by username
 const onlineUsers = {}; // { username: socket.id }
-
-// Middleware
-app.use(cors({ origin: process.env.CLIENT_URL || '*', credentials: true }));
-app.use(express.json());
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -44,7 +82,11 @@ app.use('/api/messages', messageRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('💥 UNHANDLED ERROR:', err);
+  console.error('💥 UNHANDLED ERROR:', err && err.message ? err.message : err);
+  // If this was a CORS error, respond with 403 so client sees reason
+  if (err && /CORS/i.test(err.message || '')) {
+    return res.status(403).json({ msg: err.message || 'CORS error' });
+  }
   res.status(err.status || 500).json({
     msg: err.message || 'Internal Server Error',
     error: err.message || String(err),
@@ -55,7 +97,7 @@ app.use((err, req, res, next) => {
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
 })
 .then(() => console.log('✅ MongoDB connected'))
 .catch(err => {
@@ -161,4 +203,6 @@ io.on('connection', (socket) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT} (NODE_ENV=${process.env.NODE_ENV || 'development'})`);
+});
