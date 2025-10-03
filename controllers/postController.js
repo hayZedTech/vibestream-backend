@@ -220,10 +220,12 @@ exports.updatePost = async (req, res) => {
 // -------------------------
 exports.deleteComment = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.postId);
+    const { postId, commentId } = req.params;
+
+    const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ msg: "Post not found" });
 
-    const comment = post.comments.id(req.params.commentId);
+    const comment = post.comments.id(commentId);
     if (!comment) return res.status(404).json({ msg: "Comment not found" });
 
     // Only owner of comment can delete
@@ -231,10 +233,11 @@ exports.deleteComment = async (req, res) => {
       return res.status(401).json({ msg: "Not authorized" });
     }
 
-    comment.remove();
+    // ✅ Correct way: use pull instead of remove
+    post.comments.pull({ _id: commentId });
     await post.save();
 
-    const updatedPost = await Post.findById(req.params.postId)
+    const updatedPost = await Post.findById(postId)
       .populate("user", "username avatar")
       .populate("comments.user", "username avatar");
 
@@ -244,3 +247,4 @@ exports.deleteComment = async (req, res) => {
     res.status(500).json({ msg: err.message || "Server error" });
   }
 };
+
