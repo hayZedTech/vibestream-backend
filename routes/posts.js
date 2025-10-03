@@ -1,4 +1,3 @@
-// routes/posts.js
 const express = require('express');
 const router = express.Router();
 const util = require('util');
@@ -10,9 +9,10 @@ const {
   createPost,
   likePost,
   addComment,
-  getUserPosts, // ✅ for profile feed
-  deletePost,   // ✅ delete controller
-  updatePost    // <-- new: edit/update controller (make sure this exists in controllers/postController)
+  getUserPosts, 
+  deletePost,   
+  updatePost,   
+  deleteComment // ✅ added here
 } = require('../controllers/postController');
 
 // -------------------------
@@ -56,14 +56,12 @@ function logAfterMulter(req, res, next) {
 // -------------------------
 
 // ✅ Get all posts (with pagination)
-// Example: GET /api/posts?page=1&limit=5
 router.get('/', auth, getPosts);
 
 // ✅ Get all posts by a specific user (with pagination)
-// Example: GET /api/posts/user/:id?page=1&limit=5
 router.get('/user/:id', auth, getUserPosts);
 
-// Create post (text + optional image)
+// ✅ Create post (text + optional image)
 router.post(
   '/',
   auth,
@@ -73,25 +71,18 @@ router.post(
   createPost
 );
 
-// Like/unlike post
+// ✅ Like/unlike post
 router.put('/:id/like', auth, likePost);
 
-// Add comment
+// ✅ Add comment
 router.post('/:id/comment', auth, addComment);
 
 // ✅ Delete post
 router.delete('/:id', auth, deletePost);
 
 // -------------------------
-// Edit / Update post endpoints (multipart-safe)
-// Accepts:
-//  - multipart/form-data with field "image" for new file upload
-//  - body.text for new text
-//  - body.removeImage = '1' (or truthy) to remove existing image
-// These routes all delegate to the same controller so the frontend can try multiple variants.
+// Edit / Update post (multipart-safe)
 // -------------------------
-
-// Preferred RESTful update
 router.put(
   '/:id',
   auth,
@@ -101,7 +92,6 @@ router.put(
   updatePost
 );
 
-// Some clients/backends accidentally use POST for update; accept POST /:id as well
 router.post(
   '/:id',
   auth,
@@ -111,7 +101,6 @@ router.post(
   updatePost
 );
 
-// Additional common variants the frontend may try
 router.post(
   '/:id/edit',
   auth,
@@ -138,5 +127,8 @@ router.post(
   logAfterMulter,
   updatePost
 );
+
+// ✅ Delete a comment from a post
+router.delete('/:postId/comments/:commentId', auth, deleteComment);
 
 module.exports = router;

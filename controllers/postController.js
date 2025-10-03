@@ -1,4 +1,4 @@
-const Post = require("../models/Post");
+const Post = require("../models/Post"); 
 const User = require("../models/User");
 
 
@@ -212,5 +212,35 @@ exports.updatePost = async (req, res) => {
   } catch (err) {
     console.error("❌ Error in updatePost:", err);
     return res.status(500).json({ msg: err.message || "Server error", error: String(err) });
+  }
+};
+
+// -------------------------
+// DELETE a comment
+// -------------------------
+exports.deleteComment = async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ msg: "Post not found" });
+
+    const comment = post.comments.id(req.params.commentId);
+    if (!comment) return res.status(404).json({ msg: "Comment not found" });
+
+    // Only owner of comment can delete
+    if (comment.user.toString() !== req.user.id) {
+      return res.status(401).json({ msg: "Not authorized" });
+    }
+
+    comment.remove();
+    await post.save();
+
+    const updatedPost = await Post.findById(req.params.postId)
+      .populate("user", "username avatar")
+      .populate("comments.user", "username avatar");
+
+    res.json(updatedPost);
+  } catch (err) {
+    console.error("❌ Error in deleteComment:", err.message);
+    res.status(500).json({ msg: err.message || "Server error" });
   }
 };
