@@ -1,7 +1,7 @@
 const Post = require("../models/Post");
 const User = require("../models/User");
 
-// -------------------------
+
 // GET all posts (latest first, with user info) + PAGINATION
 // -------------------------
 exports.getPosts = async (req, res) => {
