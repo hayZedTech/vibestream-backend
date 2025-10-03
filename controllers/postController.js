@@ -151,3 +151,67 @@ exports.deletePost = async (req, res) => {
     res.status(500).json({ msg: err.message || "Server error" });
   }
 };
+
+// -------------------------
+// UPDATE / EDIT a post
+// Supports multipart (req.file), body.text, and removeImage flag.
+// -------------------------
+exports.updatePost = async (req, res) => {
+  try {
+    // find post
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ msg: "Post not found" });
+
+    // only owner can edit
+    if (post.user.toString() !== req.user.id) {
+      return res.status(401).json({ msg: "Not authorized" });
+    }
+
+    // track whether any change will be applied
+    let changed = false;
+
+    // sanitize incoming text (basic trimming) — caller (frontend) should have sanitized too
+    if (typeof req.body.text !== "undefined") {
+      // allow empty string to clear text
+      post.text = String(req.body.text || "");
+      changed = true;
+    }
+
+    // If a new image file was uploaded via multer (parser), use its path
+    if (req.file && req.file.path) {
+      post.image = req.file.path;
+      changed = true;
+    } else {
+      // Otherwise, respect a removeImage flag (e.g., "1" or "true")
+      const removeFlag = req.body && (req.body.removeImage === "1" || req.body.removeImage === "true" || req.body.removeImage === "yes" || req.body.removeImage === "on");
+      if (removeFlag) {
+        // NOTE: we do not attempt to delete the remote/cloud file here; we simply clear the post.image field.
+        if (post.image) {
+          post.image = "";
+          changed = true;
+        }
+      }
+    }
+
+    if (!changed) {
+      return res.status(400).json({ msg: "No changes provided" });
+    }
+
+    // mark edited (frontend shows badge when edited:true)
+    post.edited = true;
+
+    // update timestamp if using timestamps in schema
+    post.updatedAt = Date.now();
+
+    await post.save();
+
+    // populate before returning
+    await post.populate("user", "username avatar");
+    await post.populate("comments.user", "username avatar");
+
+    return res.json(post);
+  } catch (err) {
+    console.error("❌ Error in updatePost:", err);
+    return res.status(500).json({ msg: err.message || "Server error", error: String(err) });
+  }
+};

@@ -15,6 +15,7 @@ const PostSchema = new mongoose.Schema(
     image: { type: String, default: "" }, // Cloudinary URL
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     comments: [CommentSchema],
+    edited: { type: Boolean, default: false } // new: mark post as edited
   },
   { timestamps: true }
 );

@@ -1,4 +1,4 @@
-// routes/post.js
+// routes/posts.js
 const express = require('express');
 const router = express.Router();
 const util = require('util');
@@ -11,7 +11,8 @@ const {
   likePost,
   addComment,
   getUserPosts, // ✅ for profile feed
-  deletePost    // ✅ delete controller
+  deletePost,   // ✅ delete controller
+  updatePost    // <-- new: edit/update controller (make sure this exists in controllers/postController)
 } = require('../controllers/postController');
 
 // -------------------------
@@ -80,5 +81,62 @@ router.post('/:id/comment', auth, addComment);
 
 // ✅ Delete post
 router.delete('/:id', auth, deletePost);
+
+// -------------------------
+// Edit / Update post endpoints (multipart-safe)
+// Accepts:
+//  - multipart/form-data with field "image" for new file upload
+//  - body.text for new text
+//  - body.removeImage = '1' (or truthy) to remove existing image
+// These routes all delegate to the same controller so the frontend can try multiple variants.
+// -------------------------
+
+// Preferred RESTful update
+router.put(
+  '/:id',
+  auth,
+  logIncoming,
+  multerUploadMiddleware,
+  logAfterMulter,
+  updatePost
+);
+
+// Some clients/backends accidentally use POST for update; accept POST /:id as well
+router.post(
+  '/:id',
+  auth,
+  logIncoming,
+  multerUploadMiddleware,
+  logAfterMulter,
+  updatePost
+);
+
+// Additional common variants the frontend may try
+router.post(
+  '/:id/edit',
+  auth,
+  logIncoming,
+  multerUploadMiddleware,
+  logAfterMulter,
+  updatePost
+);
+
+router.put(
+  '/:id/edit',
+  auth,
+  logIncoming,
+  multerUploadMiddleware,
+  logAfterMulter,
+  updatePost
+);
+
+router.post(
+  '/edit/:id',
+  auth,
+  logIncoming,
+  multerUploadMiddleware,
+  logAfterMulter,
+  updatePost
+);
 
 module.exports = router;
