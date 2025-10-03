@@ -86,16 +86,19 @@ exports.likePost = async (req, res) => {
 // -------------------------
 exports.addComment = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id)
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ msg: "Comment text is required" });
+
+    let post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ msg: "Post not found" });
+
+    post.comments.push({ user: req.user.id, text });
+    await post.save();
+
+    // 🔑 re-fetch to ensure populated + correct text
+    post = await Post.findById(req.params.id)
       .populate("user", "username avatar")
       .populate("comments.user", "username avatar");
-
-    if (!post) return res.status(404).json({ msg: "Post not found" });
-    if (!req.body.text) return res.status(400).json({ msg: "Comment text is required" });
-
-    post.comments.push({ user: req.user.id, text: req.body.text });
-    await post.save();
-    await post.populate("comments.user", "username avatar");
 
     res.json(post);
   } catch (err) {
@@ -154,8 +157,8 @@ exports.deletePost = async (req, res) => {
 
 // -------------------------
 // UPDATE / EDIT a post
-// Supports multipart (req.file), body.text, and removeImage flag.
 // -------------------------
+// Supports multipart (req.file), body.text, and removeImage flag.
 exports.updatePost = async (req, res) => {
   try {
     // find post
@@ -170,22 +173,22 @@ exports.updatePost = async (req, res) => {
     // track whether any change will be applied
     let changed = false;
 
-    // sanitize incoming text (basic trimming) — caller (frontend) should have sanitized too
     if (typeof req.body.text !== "undefined") {
-      // allow empty string to clear text
       post.text = String(req.body.text || "");
       changed = true;
     }
 
-    // If a new image file was uploaded via multer (parser), use its path
     if (req.file && req.file.path) {
       post.image = req.file.path;
       changed = true;
     } else {
-      // Otherwise, respect a removeImage flag (e.g., "1" or "true")
-      const removeFlag = req.body && (req.body.removeImage === "1" || req.body.removeImage === "true" || req.body.removeImage === "yes" || req.body.removeImage === "on");
+      const removeFlag =
+        req.body &&
+        (req.body.removeImage === "1" ||
+          req.body.removeImage === "true" ||
+          req.body.removeImage === "yes" ||
+          req.body.removeImage === "on");
       if (removeFlag) {
-        // NOTE: we do not attempt to delete the remote/cloud file here; we simply clear the post.image field.
         if (post.image) {
           post.image = "";
           changed = true;
@@ -197,15 +200,11 @@ exports.updatePost = async (req, res) => {
       return res.status(400).json({ msg: "No changes provided" });
     }
 
-    // mark edited (frontend shows badge when edited:true)
     post.edited = true;
-
-    // update timestamp if using timestamps in schema
     post.updatedAt = Date.now();
 
     await post.save();
 
-    // populate before returning
     await post.populate("user", "username avatar");
     await post.populate("comments.user", "username avatar");
 
