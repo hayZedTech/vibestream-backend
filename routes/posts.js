@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require('express'); 
 const router = express.Router();
 const util = require('util');
 
@@ -12,7 +12,8 @@ const {
   getUserPosts, 
   deletePost,   
   updatePost,   
-  deleteComment // ✅ added here
+  deleteComment, // ✅ already here
+  updateComment // ✅ newly added
 } = require('../controllers/postController');
 
 // -------------------------
@@ -130,5 +131,8 @@ router.post(
 
 // ✅ Delete a comment from a post
 router.delete('/:postId/comments/:commentId', auth, deleteComment);
+
+// ✅ Update a comment
+router.put('/:postId/comments/:commentId', auth, updateComment);
 
 module.exports = router;

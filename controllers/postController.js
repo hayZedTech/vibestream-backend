@@ -248,3 +248,42 @@ exports.deleteComment = async (req, res) => {
   }
 };
 
+// -------------------------
+// UPDATE a comment
+// -------------------------
+exports.updateComment = async (req, res) => {
+  try {
+    const { postId, commentId } = req.params;
+    const { text } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ msg: "Comment text is required" });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) return res.status(404).json({ msg: "Post not found" });
+
+    const comment = post.comments.id(commentId);
+    if (!comment) return res.status(404).json({ msg: "Comment not found" });
+
+    // Only owner can edit
+    if (comment.user.toString() !== req.user.id) {
+      return res.status(401).json({ msg: "Not authorized" });
+    }
+
+    comment.text = text;
+    comment.edited = true;
+    comment.updatedAt = Date.now();
+
+    await post.save();
+
+    const updatedPost = await Post.findById(postId)
+      .populate("user", "username avatar")
+      .populate("comments.user", "username avatar");
+
+    res.json(updatedPost);
+  } catch (err) {
+    console.error("❌ Error in updateComment:", err.message);
+    res.status(500).json({ msg: err.message || "Server error" });
+  }
+};
